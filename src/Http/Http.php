@@ -5,7 +5,7 @@ use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Juzdy\Config;
-use Juzdy\AppInterface;
+use Juzdy\App\AppInterface;
 use Juzdy\Container\Attribute\Parameter\Using;
 use Juzdy\Container\Attribute\Prefer;
 use Juzdy\Container\Attribute\Shared;
