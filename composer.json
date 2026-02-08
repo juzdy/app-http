@@ -1,0 +1,28 @@
+{
+    "name": "juzdy/app-http",
+    "description": "The JUZDY HHTP Application",
+    "keywords": ["php", "juzdy", "http", "app"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Victor Galitsky",
+            "email": "concept.galitsky@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Juzdy\\Http\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+        }
+    },
+    "extra": {
+    },
+    "config": {
+    }
+}
