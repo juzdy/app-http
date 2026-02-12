@@ -1,5 +1,5 @@
 <?php
-namespace Juzdy\Http\Middleware;
+namespace Juzdy\Http\Middleware\Common;
 
 use Juzdy\Http\HandlerInterface;
 use Juzdy\Http\RequestInterface;
@@ -57,26 +57,25 @@ class CorsMiddleware implements MiddlewareInterface
             $response->header('Vary', 'Origin');
         }
         
-        $response->header(
-            'Access-Control-Allow-Methods',
-            $response->header('Access-Control-Allow-Methods') 
-            ?:
-            'GET, POST, PUT, DELETE, OPTIONS'
-        );
-
-        $response->header(
-            'Access-Control-Allow-Headers',
-            $response->header('Access-Control-Allow-Headers') 
-            ?:
-            'Content-Type, Authorization'
-        );
-
-        $response->header(
-            'Access-Control-Allow-Credentials',
-            $response->header('Access-Control-Allow-Credentials') 
-            ?:
-            'true'
-        );
+        $response
+            ->header(
+                'Access-Control-Allow-Methods',
+                $response->header('Access-Control-Allow-Methods') 
+                ?:
+                'GET, POST, PUT, DELETE, OPTIONS'
+            )
+            ->header(
+                'Access-Control-Allow-Headers',
+                $response->header('Access-Control-Allow-Headers') 
+                ?:
+                'Content-Type, Authorization'
+            )
+            ->header(
+                'Access-Control-Allow-Credentials',
+                $response->header('Access-Control-Allow-Credentials') 
+                ?:
+                'true'
+            );
 
         return $response;
     }

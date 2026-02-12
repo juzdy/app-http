@@ -1,5 +1,5 @@
 <?php
-namespace Juzdy\Http\Middleware;
+namespace Juzdy\Http\Middleware\Common;
 
 use Juzdy\Http\HandlerInterface;
 use Juzdy\Http\Middleware\MiddlewareInterface;
@@ -48,11 +48,11 @@ class RateLimitMiddleware implements MiddlewareInterface
      *
      * @param RequestInterface $request
      * @param RequestHandlerInterface $handler
-     * @return void
+     * @return ResponseInterface
      */
     public function process(RequestInterface $request, HandlerInterface $handler): ResponseInterface
     {
-        $ip = $request->server('REMOTE_ADDR', 'unknown');
+        $ip = $request->server('REMOTE_ADDR') ?? 'unknown';
         
         // Note: Using session storage here for simplicity
         // For production, use shared cache (Redis/Memcached) for IP-based rate limiting

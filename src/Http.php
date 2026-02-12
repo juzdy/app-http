@@ -2,22 +2,21 @@
 namespace Juzdy\Http;
 
 use Psr\Container\ContainerInterface;
-use Psr\Container\NotFoundExceptionInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Juzdy\Config;
 use Juzdy\App\AppInterface;
+use Juzdy\Config\Config;
+use Juzdy\Http\RequestInterface;
+use Juzdy\Http\ResponseInterface;
+use Juzdy\Http\Handler\NotFoundHandler;
+use Juzdy\Http\Middleware\MiddlewarePipeline;
+use Juzdy\Http\Middleware\Proxy\MiddlewareProxy;
+use Juzdy\EventBus\Event\EventInterface;
+use Juzdy\Http\Event\AfterRun;
+use Juzdy\Http\Event\BeforeRun;
 use Juzdy\Container\Attribute\Parameter\Using;
 use Juzdy\Container\Attribute\Prefer;
 use Juzdy\Container\Attribute\Shared;
-use Juzdy\Container\Contract\InjectableInterface;
-use Juzdy\Container\Contract\Lifecycle\PrototypeInterface;
-use Juzdy\Container\Contract\Lifecycle\SharedInterface;
-use Juzdy\EventBus\Event\EventInterface;
-use Juzdy\Http\Event\BeforeRun;
-use Juzdy\Http\Handler\NotFoundHandler;
-use Juzdy\Http\RequestInterface;
-use Juzdy\Http\ResponseInterface;
-use Juzdy\Http\Middleware\MiddlewarePipeline;
+use Juzdy\Http\Event\EventContext;
 
 /**
  * HTTP Application implementation
@@ -30,8 +29,12 @@ use Juzdy\Http\Middleware\MiddlewarePipeline;
     ]
 )]
 #[Shared]
-class Http implements AppInterface, InjectableInterface, PrototypeInterface, SharedInterface
+class Http implements AppInterface
 {
+    const CONFIG_PATH_MIDDLEWARE_HTTP = 'middleware.http';
+
+    private ?ResponseInterface $response = null;
+
     /**
      * Constructor
      * 
@@ -47,15 +50,41 @@ class Http implements AppInterface, InjectableInterface, PrototypeInterface, Sha
         private RequestInterface $request,
         private EventDispatcherInterface $eventDispatcher,
         private MiddlewarePipeline $pipeline,
+        private MiddlewareProxy $middlewareProxy,
         #[Using(BeforeRun::class)]
         private EventInterface $beforeRunEvent,
-    ) {}
+        #[Using(AfterRun::class)]
+        private EventInterface $afterRunEvent,
+    ) {
 
-    public function __clone(): void
-    {
-        // Custom clone logic if needed
+        $beforeRunEvent->attach([
+            'app' => $this,
+            'request' => $request,
+        ]);
+
+        $afterRunEvent->attach([
+            'app'     => $this,
+            'request' => $request,
+            // 'response' => $this->getResponse(),
+        ]);
     }
-    
+
+    /**
+     * Magic method to allow direct access to services from the container.
+     *
+     * @param string $service The service identifier
+     * @return mixed The resolved service instance
+     */
+    public function __invoke(string $service): mixed
+    {
+        return $this->getContainer()->get($service);
+    }
+
+    /**
+     * Prevent cloning of the Http instance.
+     */
+    private function __clone(): void
+    {}
 
     /**
      * Run the application.
@@ -63,23 +92,22 @@ class Http implements AppInterface, InjectableInterface, PrototypeInterface, Sha
      * @return void
      */
     public function run(): void
-    {
-        // Dispatch before run event
-        $this->getEventDispatcher()->dispatch($this->getBeforeRunEvent());
-        
-        try{
-
-            $this->loadGlobalMiddleware();
+    {   
+        try {
+            $this->beforeRun();
             
-            $response = $this->handleRequest();
+            $this->response = $this
+                ->buildMiddlewarePipeline()
+                ->handleRequest();
+            
+            $this->getResponse()->send();
 
-            $response->send();
+            $this->afterRun();
 
         } catch (\Throwable $e) {
+            die('TODO: ROOT APP Handle exception: ' . $e->getMessage());
             
-            throw new \Exception($e);
-        }
-        
+        }   
     }
 
     /**
@@ -89,12 +117,10 @@ class Http implements AppInterface, InjectableInterface, PrototypeInterface, Sha
      */
     protected function handleRequest(): ResponseInterface
     {
-        // 
         $this->getPipeline()->setFallbackHandler(
-            $this->getContainer()->get(NotFoundHandler::class)
+            $this(NotFoundHandler::class)
         );
-        
-        // Process the request through the middleware pipeline
+
         return $this->getPipeline()->handle($this->getRequest());
     }
 
@@ -119,6 +145,20 @@ class Http implements AppInterface, InjectableInterface, PrototypeInterface, Sha
     }
 
     /**
+     * Get the current HTTP response.
+     *
+     * @return ResponseInterface
+     */
+    protected function getResponse(): ResponseInterface
+    {
+        if ($this->response === null) {
+            throw new \RuntimeException('Response has not been generated yet.');
+        }
+
+        return $this->response;
+    }
+
+    /**
      * Get the middleware pipeline.
      *
      * @return MiddlewarePipeline
@@ -129,24 +169,52 @@ class Http implements AppInterface, InjectableInterface, PrototypeInterface, Sha
     }
 
     /**
-     * Load global middleware from configuration.
+     * Build the middleware pipeline based on configuration.
      *
-     * @return void
+     * @return static
      */
-    private function loadGlobalMiddleware(): void
+    private function buildMiddlewarePipeline(): static
     {
-        $middleware = Config::get('middleware.global', []);
+        $httpMiddlewares = Config::get(self::CONFIG_PATH_MIDDLEWARE_HTTP) ?? [];
 
-        foreach ($middleware as $middlewareClass) {
-            if (class_exists($middlewareClass)) {
-                try {
-                    $middleware = $this->getContainer()->get($middlewareClass);
-                } catch (NotFoundExceptionInterface) {
-                    throw new \Exception("Middleware class {$middlewareClass} could not be resolved.");
-                }
-                $this->getPipeline()->pipe($middleware);
-            }
-        }
+         foreach ($httpMiddlewares as $middlewareId) {
+
+                $this->getPipeline()->pipe(
+                    $this->getMiddlewareProxy()->withId($middlewareId)
+                );
+         }
+
+        return $this;
+    }
+
+    /**
+     * Dispatch the after run event.
+     *
+     * @return static
+     */
+    private function beforeRun(): static
+    {
+        $this->getEventDispatcher()
+            ->dispatch(
+                $this->getBeforeRunEvent()
+            );
+
+        return $this;
+    }
+
+    /**
+     * Dispatch the after run event.
+     *
+     * @return static
+     */
+    private function afterRun(): static
+    {
+        $this->getEventDispatcher()
+            ->dispatch(
+                $this->getAfterRunEvent()
+            );
+
+        return $this;
     }
 
     /**
@@ -160,13 +228,33 @@ class Http implements AppInterface, InjectableInterface, PrototypeInterface, Sha
     }
 
     /**
+     * Get the middleware proxy.
+     *
+     * @return MiddlewareProxy
+     */
+    private function getMiddlewareProxy(): MiddlewareProxy
+    {
+        return $this->middlewareProxy;
+    }
+
+    /**
      * Get the before run event.
      *
      * @return EventInterface
      */
     protected function getBeforeRunEvent(): EventInterface
     {
-        return $this->beforeRunEvent->attach('app', $this);
+        return $this->beforeRunEvent;
+    }
+
+    /**
+     * Get the after run event.
+     *
+     * @return EventInterface
+     */
+    protected function getAfterRunEvent(): EventInterface
+    {
+        return $this->afterRunEvent;
     }
     
 }

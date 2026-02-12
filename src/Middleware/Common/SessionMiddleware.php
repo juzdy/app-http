@@ -1,7 +1,8 @@
 <?php
-namespace Juzdy\Http\Middleware;
+namespace Juzdy\Http\Middleware\Common;
 
 use Juzdy\Http\HandlerInterface;
+use Juzdy\Http\Middleware\MiddlewareInterface;
 use Juzdy\Http\RequestInterface;
 use Juzdy\Http\ResponseInterface;
 
