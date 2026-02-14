@@ -5,6 +5,7 @@ use Psr\Container\ContainerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Juzdy\App\AppInterface;
 use Juzdy\Config\Config;
+use Juzdy\Config\ConfigInterface;
 use Juzdy\Http\RequestInterface;
 use Juzdy\Http\ResponseInterface;
 use Juzdy\Http\Handler\NotFoundHandler;
@@ -35,17 +36,9 @@ class Http implements AppInterface
 
     private ?ResponseInterface $response = null;
 
-    /**
-     * Constructor
-     * 
-     * @param ContainerInterface $container
-     * @param RequestInterface $request
-     * @param EventDispatcherInterface $eventDispatcher
-     * @param MiddlewarePipeline $pipeline
-     * @param EventInterface $beforeRunEvent
-     */    
+    
     public function __construct(
-        //private NothingInterface $nothing,
+        private ConfigInterface $config,
         private ContainerInterface $container,
         private RequestInterface $request,
         private EventDispatcherInterface $eventDispatcher,
@@ -108,6 +101,11 @@ class Http implements AppInterface
             die('TODO: ROOT APP Handle exception: ' . $e->getMessage());
             
         }   
+    }
+
+    protected function getConfig(): ConfigInterface
+    {
+        return $this->config;
     }
 
     /**
@@ -175,7 +173,7 @@ class Http implements AppInterface
      */
     private function buildMiddlewarePipeline(): static
     {
-        $httpMiddlewares = Config::get(self::CONFIG_PATH_MIDDLEWARE_HTTP) ?? [];
+        $httpMiddlewares = $this->getConfig()->get(self::CONFIG_PATH_MIDDLEWARE_HTTP) ?? [];
 
          foreach ($httpMiddlewares as $middlewareId) {
 

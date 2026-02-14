@@ -3,6 +3,7 @@ namespace Juzdy\Http\Router;
 
 use Psr\Container\ContainerInterface;
 use Juzdy\Config\Config;
+use Juzdy\Config\ConfigInterface;
 use Juzdy\Http\Exception\NotFoundException;
 use Juzdy\Http\HandlerInterface;
 use Juzdy\Http\Middleware\MiddlewareInterface;
@@ -14,8 +15,14 @@ use Juzdy\Http\ResponseInterface;
 class DynaRouter implements RouterInterface
 {
 
-    public function __construct(protected ContainerInterface $container)
+    public function __construct(private ConfigInterface $config, private ContainerInterface $container)
     {
+    }
+
+    
+    private function getConfig(): ConfigInterface
+    {
+        return $this->config;
     }
 
     /**
@@ -62,12 +69,12 @@ class DynaRouter implements RouterInterface
      */
     private function dispatch(RequestInterface $request): ResponseInterface
     {
-        $route = $request->query(Config::get('http.htaccess_handler_rewrite_param') ?? uniqid()) ?? '';
+        $route = $request->query($this->getConfig()->get('http.htaccess_handler_rewrite_param') ?? uniqid()) ?? '';
 
         $parts = array_filter(explode('/', $route));
 
         if (count($parts) < 1) {
-            $parts[] = Config::get('http.default_handler') ?? 'index'; // Default handler if not specified
+            $parts[] = $this->getConfig()->get('http.default_handler') ?? 'index'; // Default handler if not specified
         }
         
         // Convert kebab-case to camelCase for each part
@@ -133,7 +140,7 @@ class DynaRouter implements RouterInterface
         $handlerClasses = [];
 
         foreach ($this->getComposerNamespaces() as $namespace) {
-            foreach (Config::get('http.request_handlers_namespace') as $handlerNamespace) {
+            foreach ($this->getConfig()->get('http.request_handlers_namespace') as $handlerNamespace) {
                 $possibleHandler = preg_replace(
                     '/\\\\+/',
                     '\\',
@@ -175,7 +182,7 @@ class DynaRouter implements RouterInterface
 
         foreach ($is_a as $of) {
             
-            $middlewareClasses = Config::get("middleware.handler.{$of}") ?? [];
+            $middlewareClasses = $this->getConfig()->get("middleware.handler.{$of}") ?? [];
             
             foreach ($middlewareClasses as $middlewareClass) {
                 if (!class_exists($middlewareClass)) {
