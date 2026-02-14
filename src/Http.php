@@ -4,7 +4,6 @@ namespace Juzdy\Http;
 use Psr\Container\ContainerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Juzdy\App\AppInterface;
-use Juzdy\Config\Config;
 use Juzdy\Config\ConfigInterface;
 use Juzdy\Http\RequestInterface;
 use Juzdy\Http\ResponseInterface;
@@ -17,7 +16,6 @@ use Juzdy\Http\Event\BeforeRun;
 use Juzdy\Container\Attribute\Parameter\Using;
 use Juzdy\Container\Attribute\Prefer;
 use Juzdy\Container\Attribute\Shared;
-use Juzdy\Http\Event\EventContext;
 
 /**
  * HTTP Application implementation
