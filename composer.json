@@ -23,6 +23,12 @@
         }
     },
     "extra": {
+        "juzdy": {
+            "config-dir": "etc/config",
+            "config-inline": {
+                "used_app-http-config": true
+            }
+        }
     },
     "config": {
     }

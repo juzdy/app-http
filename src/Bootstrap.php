@@ -1,11 +1,10 @@
 <?php
 namespace Juzdy\Http;
 
-use Juzdy\App\AppInterface;
+use Juzdy\App\Bootstrap as AppBootstrap;
 use Juzdy\Container\Attribute\Shared;
-use Juzdy\Container\Repository\SharedRepository;
 
 #[Shared]
-class Bootstrap extends \Juzdy\App\Bootstrap
+class Bootstrap extends AppBootstrap
 {
 }
