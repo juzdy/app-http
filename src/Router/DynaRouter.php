@@ -2,7 +2,6 @@
 namespace Juzdy\Http\Router;
 
 use Psr\Container\ContainerInterface;
-use Juzdy\Config\Config;
 use Juzdy\Config\ConfigInterface;
 use Juzdy\Http\Exception\NotFoundException;
 use Juzdy\Http\HandlerInterface;
@@ -15,14 +14,34 @@ use Juzdy\Http\ResponseInterface;
 class DynaRouter implements RouterInterface
 {
 
-    public function __construct(private ConfigInterface $config, private ContainerInterface $container)
+    public static ?DynaRouter $instance = null;
+
+    public function __construct(
+        private ConfigInterface $config,
+        private ContainerInterface $container
+    )
     {
+        self::$instance = $this;
     }
 
-    
+    /**
+     * Get the configuration instance.
+     *
+     * @return ConfigInterface The configuration instance.
+     */
     private function getConfig(): ConfigInterface
     {
         return $this->config;
+    }
+
+    /**
+     * Get the dependency injection container.
+     *
+     * @return ContainerInterface The container instance.
+     */
+    private function getContainer(): ContainerInterface
+    {
+        return $this->container;
     }
 
     /**
@@ -51,17 +70,19 @@ class DynaRouter implements RouterInterface
      */
     public static function route(string $handlerClass): string
     {
-        //$class = str_replace(, '', $handlerClass);
 
-        $parts = preg_split('/(?=[A-Z])/', $handlerClass, -1, PREG_SPLIT_NO_EMPTY);
-        $routeParts = [];
-        foreach ($parts as $part) {
-            $routeParts[] = strtolower(preg_replace('/([a-z])([A-Z])/', '$1-$2', $part));
+        foreach (self::$instance->getConfig()->get('http.dynamic_handler_namespace') as $handlerNamespace) {
+            if (str_starts_with($handlerClass, $handlerNamespace)) {
+                $relativeClass = substr($handlerClass, strlen($handlerNamespace));
+                $route = str_replace('\\', '/', $relativeClass);
+                // Convert camelCase to kebab-case
+                $route = preg_replace('/([a-z])([A-Z])/', '$1-$2', $route);
+                return '/' . strtolower($route);
+            }
         }
-        return implode('/', $routeParts);
-    }
 
-    
+        throw new \RuntimeException("Route not found for handler class: $handlerClass");
+    }
 
     /**
      * Dispatch a route to the appropriate controller/action.
@@ -69,12 +90,12 @@ class DynaRouter implements RouterInterface
      */
     private function dispatch(RequestInterface $request): ResponseInterface
     {
-        $route = $request->query($this->getConfig()->get('http.htaccess_handler_rewrite_param') ?? uniqid()) ?? '';
+        $route = $request->query($this->getConfig()->get('http.handler_param') ?? uniqid()) ?? '';
 
         $parts = array_filter(explode('/', $route));
 
         if (count($parts) < 1) {
-            $parts[] = $this->getConfig()->get('http.default_handler') ?? 'index'; // Default handler if not specified
+            $parts[] = 'Index'; // Default handler if not specified
         }
         
         // Convert kebab-case to camelCase for each part
@@ -139,31 +160,16 @@ class DynaRouter implements RouterInterface
     {
         $handlerClasses = [];
 
-        foreach ($this->getComposerNamespaces() as $namespace) {
-            foreach ($this->getConfig()->get('http.request_handlers_namespace') as $handlerNamespace) {
-                $possibleHandler = preg_replace(
-                    '/\\\\+/',
-                    '\\',
-                    str_replace('{namespace}', $namespace, $handlerNamespace) . '\\' . $route
-                );
+        foreach ($this->getConfig()->get('http.dynamic_handler_namespace') as $handlerNamespace) {
 
-                if (class_exists($possibleHandler) && is_subclass_of($possibleHandler, HandlerInterface::class)) {
-                    $handlerClasses[] = $possibleHandler;
-                }
+            $possibleHandler = $handlerNamespace . $route;
+
+            if (class_exists($possibleHandler) && is_subclass_of($possibleHandler, HandlerInterface::class)) {
+                $handlerClasses[] = $possibleHandler;
             }
         }
 
         return $handlerClasses;
-    }
-
-    /**
-     * Get composer namespaces used for handler resolution.
-     *
-     * @return array<int, string>
-     */
-    private function getComposerNamespaces(): array
-    {
-        return \Juzdy\Composer\Composer::namespaces();
     }
 
     /**
@@ -203,16 +209,6 @@ class DynaRouter implements RouterInterface
                 
             }
         }
-    }
-
-    /**
-     * Get the dependency injection container.
-     *
-     * @return ContainerInterface The container instance.
-     */
-    protected function getContainer(): ContainerInterface
-    {
-        return $this->container;
     }
 
 }

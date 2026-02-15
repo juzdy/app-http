@@ -39,19 +39,6 @@ trait MiddlewareTrait
         return $this;
     }
 
-    // /**
-    //  * Add middleware by class name.
-    //  *
-    //  * @param string $middlewareClass
-    //  * @return self
-    //  */
-    // protected function addMiddlewareByClass(string $middlewareClass): static
-    // {
-    //     if (class_exists($middlewareClass)) {
-    //         $this->middleware[] = new $middlewareClass();
-    //     }
-    //     return $this;
-    // }
     /**
      * Execute the controller with its middleware.
      * This method should be called instead of the action method directly.
@@ -63,7 +50,7 @@ trait MiddlewareTrait
     {
         if (empty($this->middleware)) {
             // No middleware, execute action directly
-            return $action();
+            return $action($request);
         }
 
         // Create a pipeline for controller middleware
@@ -84,7 +71,7 @@ trait MiddlewareTrait
 
             public function handle(RequestInterface $request): ResponseInterface
             {
-                return ($this->action)();
+                return ($this->action)($request);
             }
         };
 

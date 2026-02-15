@@ -3,6 +3,7 @@ namespace Juzdy\Http;
 
 use Juzdy\Http\Handler\MiddlewareTrait;
 use Juzdy\Http\Handler\RenderTrait;
+use Juzdy\Http\Router\DynaRouter;
 
 abstract class Handler implements HandlerInterface, MiddlewareAwareInterface
 {
@@ -25,7 +26,7 @@ abstract class Handler implements HandlerInterface, MiddlewareAwareInterface
      */
     public static function route(): string
     {
-        return Router::route(static::class);
+        return DynaRouter::route(static::class);
     }
 
     /**

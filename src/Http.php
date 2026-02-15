@@ -39,7 +39,7 @@ class Http implements AppInterface
         private ConfigInterface $config,
         private ContainerInterface $container,
         private RequestInterface $request,
-        private EventDispatcherInterface $eventDispatcher,
+        //private EventDispatcherInterface $eventDispatcher,
         private MiddlewarePipeline $pipeline,
         private MiddlewareProxy $middlewareProxy,
         #[Using(BeforeRun::class)]
@@ -48,16 +48,16 @@ class Http implements AppInterface
         private EventInterface $afterRunEvent,
     ) {
 
-        $beforeRunEvent->attach([
-            'app' => $this,
-            'request' => $request,
-        ]);
+        // $beforeRunEvent->attach([
+        //     'app' => $this,
+        //     'request' => $request,
+        // ]);
 
-        $afterRunEvent->attach([
-            'app'     => $this,
-            'request' => $request,
-            // 'response' => $this->getResponse(),
-        ]);
+        // $afterRunEvent->attach([
+        //     'app'     => $this,
+        //     'request' => $request,
+        //     // 'response' => $this->getResponse(),
+        // ]);
     }
 
     /**
@@ -190,9 +190,11 @@ class Http implements AppInterface
      */
     private function beforeRun(): static
     {
-        $this->getEventDispatcher()
-            ->dispatch(
-                $this->getBeforeRunEvent()
+        $this->getBeforeRunEvent()->fire(
+                [
+                    'app' => $this,
+                    'request' => $this->getRequest(),
+                ]
             );
 
         return $this;
@@ -205,22 +207,15 @@ class Http implements AppInterface
      */
     private function afterRun(): static
     {
-        $this->getEventDispatcher()
-            ->dispatch(
-                $this->getAfterRunEvent()
+        $this->getAfterRunEvent()->fire(
+                [
+                    'app'     => $this,
+                    'request' => $this->getRequest(),
+                    'response' => $this->getResponse(),
+                ]
             );
 
         return $this;
-    }
-
-    /**
-     * Get the event dispatcher.
-     *
-     * @return EventDispatcherInterface
-     */
-    protected function getEventDispatcher(): EventDispatcherInterface
-    {
-        return $this->eventDispatcher;
     }
 
     /**
