@@ -11,8 +11,7 @@
     ],
     "require": {
         "php": ">=8.2",
-        "juzdy/app":"^1",
-        "juzdy/app-http-middleware": "^1"
+        "juzdy/app":"^1"
     },
     "autoload": {
         "psr-4": {
