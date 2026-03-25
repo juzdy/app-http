@@ -1,0 +1,2 @@
+Juzdy\Http\Middleware\Proxy\Event\AfterProcessEvent;
+Juzdy\Http\Middleware\Proxy\Event\BeforeProcessEvent;

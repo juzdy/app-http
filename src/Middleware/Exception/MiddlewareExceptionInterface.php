@@ -1,7 +1,9 @@
 <?php
-namespace Juzdy\Http\Middleware;
+namespace Juzdy\Http\Middleware\Exception;
 
-interface MiddlewareExceptionInterface extends \Throwable
+use Throwable;
+
+interface MiddlewareExceptionInterface extends Throwable
 {
     // Marker interface for exceptions thrown by middleware components
 }

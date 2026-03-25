@@ -1,0 +1,27 @@
+<?php
+return [
+    
+    'dynamic-router' => [
+        /**
+         * @see .htaccess RewriteRule for the query parameter name. This is the query parameter that will be used to specify the handler class for a route.
+         */
+        'handler-query-param' => '_h',
+         /**
+         * Namespaces to search for handler classes. The router will append the route to these namespaces to find the handler class.
+         * For example, if the route is "/user/profile" and the namespace is "App\Http\Handler\",
+         * it will look for "App\Http\Handler\User\Profile" as the handler
+         */
+        'handler-namespaces' => [
+            "Juzdy\\Http\\Handler\\Demo\\",
+        ],
+        /**
+         * Apply middleware to handlers that are instances of (or extend/implement) the specified class/interface.
+        * The key is the class/interface name, and the value is an array of middleware classes to apply.
+        */
+        "handler-middleware" => [   
+            Juzdy\Http\Handler\Demo\Contract\WithDemoMiddleware::class => [
+                \Juzdy\Http\Handler\Demo\Middleware\DemoHandlerMiddleware::class,
+            ],
+        ]
+    ]
+];

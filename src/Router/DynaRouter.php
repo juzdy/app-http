@@ -1,6 +1,8 @@
 <?php
 namespace Juzdy\Http\Router;
 
+use Juzdy\App\Http\Exception\Router\RouteConflictException;
+use Juzdy\App\Http\Exception\Router\RouteNotFoundException;
 use Psr\Container\ContainerInterface;
 use Juzdy\Config\ConfigInterface;
 use Juzdy\Http\Exception\NotFoundException;
@@ -70,8 +72,7 @@ class DynaRouter implements RouterInterface
      */
     public static function route(string $handlerClass): string
     {
-
-        foreach (self::$instance->getConfig()->get('http.dynamic_handler_namespace') as $handlerNamespace) {
+        foreach (self::$instance->getConfig()->get('dynamic-router.handler-namespaces') as $handlerNamespace) {
             if (str_starts_with($handlerClass, $handlerNamespace)) {
                 $relativeClass = substr($handlerClass, strlen($handlerNamespace));
                 $route = str_replace('\\', '/', $relativeClass);
@@ -81,7 +82,7 @@ class DynaRouter implements RouterInterface
             }
         }
 
-        throw new \RuntimeException("Route not found for handler class: $handlerClass");
+        throw new RouteNotFoundException("Route not found for handler class: $handlerClass");
     }
 
     /**
@@ -90,7 +91,7 @@ class DynaRouter implements RouterInterface
      */
     private function dispatch(RequestInterface $request): ResponseInterface
     {
-        $route = $request->query($this->getConfig()->get('http.handler_param') ?? uniqid()) ?? '';
+        $route = $request->query($this->getConfig()->get('dynamic-router.handler-query-param') ?? uniqid()) ?? '';
 
         $parts = array_filter(explode('/', $route));
 
@@ -113,7 +114,7 @@ class DynaRouter implements RouterInterface
         $handlerClass = $this->resolveHandlerClass($route);
 
         if (!class_exists($handlerClass) || !is_subclass_of($handlerClass, HandlerInterface::class)) {
-                throw new \RuntimeException("Handler not found: $handlerClass");
+                throw new RouteNotFoundException("Handler not found: $handlerClass");
         }
 
         // Instantiate the handler via the container
@@ -136,15 +137,15 @@ class DynaRouter implements RouterInterface
      */
     private function resolveHandlerClass(string $route): string
     {
-        $handlerClasses = $this->resolveHandlerClassesFromComposer($route);
+        $handlerClasses = $this->resolveHandlerClasses($route);
 
         if (count($handlerClasses) === 0) {
-            throw new NotFoundException("Handler not found for route: $route");
+            throw new RouteNotFoundException("Handler not found for route: $route");
         }
 
         if (count($handlerClasses) > 1) {
             $handlers = implode(', ', $handlerClasses);
-            throw new \RuntimeException("Multiple handlers found for route: $route: $handlers");
+            throw new RouteConflictException("Multiple handlers found for route: $route: $handlers");
         }
 
         return $handlerClasses[0];
@@ -156,11 +157,11 @@ class DynaRouter implements RouterInterface
      * @param string $route
      * @return array<int, string>
      */
-    private function resolveHandlerClassesFromComposer(string $route): array
+    private function resolveHandlerClasses(string $route): array
     {
         $handlerClasses = [];
 
-        foreach ($this->getConfig()->get('http.dynamic_handler_namespace') as $handlerNamespace) {
+        foreach ($this->getConfig()->get('dynamic-router.handler-namespaces') ?? [] as $handlerNamespace) {
 
             $possibleHandler = $handlerNamespace . $route;
 
@@ -188,7 +189,7 @@ class DynaRouter implements RouterInterface
 
         foreach ($is_a as $of) {
             
-            $middlewareClasses = $this->getConfig()->get("middleware.handler.{$of}") ?? [];
+            $middlewareClasses = $this->getConfig()->get("dynamic-router.handler-middleware.{$of}") ?? [];
             
             foreach ($middlewareClasses as $middlewareClass) {
                 if (!class_exists($middlewareClass)) {

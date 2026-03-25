@@ -1,21 +1,27 @@
 <?php
+/**
+ ▄▄▄
+  █ J █ u z d y
+   ▀▀▀
+ */
 namespace Juzdy\Http;
 
 use Psr\Container\ContainerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
+use Psr\Http\Message\ServerRequestFactoryInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use Juzdy\App\AppInterface;
 use Juzdy\Config\ConfigInterface;
-use Juzdy\Http\RequestInterface;
-use Juzdy\Http\ResponseInterface;
-use Juzdy\Http\Handler\NotFoundHandler;
-use Juzdy\Http\Middleware\MiddlewarePipeline;
-use Juzdy\Http\Middleware\Proxy\MiddlewareProxy;
 use Juzdy\EventBus\Event\EventInterface;
 use Juzdy\Http\Event\AfterRun;
 use Juzdy\Http\Event\BeforeRun;
 use Juzdy\Container\Attribute\Parameter\Using;
 use Juzdy\Container\Attribute\Prefer;
 use Juzdy\Container\Attribute\Shared;
+use Juzdy\Debug\Debug;
+use Juzdy\Http\Middleware\MiddlewareStack;
+use Juzdy\Http\Middleware\Proxy\MiddlewareProxyFactory;
 
 /**
  * HTTP Application implementation
@@ -30,34 +36,20 @@ use Juzdy\Container\Attribute\Shared;
 #[Shared]
 class Http implements AppInterface
 {
-    const CONFIG_PATH_MIDDLEWARE_HTTP = 'middleware.http';
+    const CONFIG_PATH_MIDDLEWARE_GLOBAL = 'middleware.global';
 
     private ?ResponseInterface $response = null;
+    private ?ServerRequestInterface $request = null;
 
     
     public function __construct(
         private ConfigInterface $config,
         private ContainerInterface $container,
-        private RequestInterface $request,
-        //private EventDispatcherInterface $eventDispatcher,
-        private MiddlewarePipeline $pipeline,
-        private MiddlewareProxy $middlewareProxy,
         #[Using(BeforeRun::class)]
         private EventInterface $beforeRunEvent,
         #[Using(AfterRun::class)]
         private EventInterface $afterRunEvent,
     ) {
-
-        // $beforeRunEvent->attach([
-        //     'app' => $this,
-        //     'request' => $request,
-        // ]);
-
-        // $afterRunEvent->attach([
-        //     'app'     => $this,
-        //     'request' => $request,
-        //     // 'response' => $this->getResponse(),
-        // ]);
     }
 
     /**
@@ -84,14 +76,15 @@ class Http implements AppInterface
      */
     public function run(): void
     {   
+
         try {
-            $this->beforeRun();
+            //$this->beforeRun();
             
             $this->response = $this
-                ->buildMiddlewarePipeline()
+                ->buildMiddlewareStack()
                 ->handleRequest();
             
-            $this->getResponse()->send();
+            //$this->getResponse()->send();
 
             $this->afterRun();
 
@@ -107,20 +100,6 @@ class Http implements AppInterface
     }
 
     /**
-     * Handle the incoming HTTP request.
-     *
-     * @return ResponseInterface
-     */
-    protected function handleRequest(): ResponseInterface
-    {
-        $this->getPipeline()->setFallbackHandler(
-            $this(NotFoundHandler::class)
-        );
-
-        return $this->getPipeline()->handle($this->getRequest());
-    }
-
-    /**
      * Get the dependency injection container.
      *
      * @return ContainerInterface
@@ -131,13 +110,35 @@ class Http implements AppInterface
     }
 
     /**
+     * Handle the incoming HTTP request.
+     *
+     * @return ResponseInterface
+     */
+    protected function handleRequest(): ResponseInterface
+    {
+        // $this->getMiddlewareStack()->setFallbackHandler(
+        //     $this(NotFoundHandler::class)
+        // );
+
+        return $this->getMiddlewareStack()
+            ->handle($this->getRequest());
+    }
+
+    
+
+    /**
      * Get the current HTTP request.
      *
-     * @return RequestInterface
+     * @return ServerRequestInterface
      */
-    protected function getRequest(): RequestInterface
+    protected function getRequest(): ServerRequestInterface
     {
-        return $this->request;
+        return $this->request ??= $this->getRequestFactory()->createServerRequest();
+    }
+
+    protected function getRequestFactory(): ServerRequestFactoryInterface
+    {
+        return $this->getContainer()->get(ServerRequestFactoryInterface::class);
     }
 
     /**
@@ -157,29 +158,30 @@ class Http implements AppInterface
     /**
      * Get the middleware pipeline.
      *
-     * @return MiddlewarePipeline
+     * @return MiddlewareStack
      */
-    public function getPipeline(): MiddlewarePipeline
+    protected function getMiddlewareStack(): MiddlewareStack
     {
-        return $this->pipeline;
+        return $this->getContainer()->get(MiddlewareStack::class);
     }
 
     /**
-     * Build the middleware pipeline based on configuration.
+     * Build the middleware stack based on configuration.
      *
      * @return static
      */
-    private function buildMiddlewarePipeline(): static
+    private function buildMiddlewareStack(): static
     {
-        $httpMiddlewares = $this->getConfig()->get(self::CONFIG_PATH_MIDDLEWARE_HTTP) ?? [];
+        $httpMiddlewares = $this->getConfig()->get(self::CONFIG_PATH_MIDDLEWARE_GLOBAL) ?? [];
+        ksort($httpMiddlewares);
+         foreach ($httpMiddlewares as $priority => $middlewareId) {
 
-         foreach ($httpMiddlewares as $middlewareId) {
-
-                $this->getPipeline()->pipe(
-                    $this->getMiddlewareProxy()->withId($middlewareId)
+                $this->getMiddlewareStack()->push(
+                    $this->getMiddlewareProxyFactory()->create($middlewareId),
+                    $priority
                 );
          }
-
+Debug::dd($this->getConfig()->all());
         return $this;
     }
 
@@ -221,11 +223,11 @@ class Http implements AppInterface
     /**
      * Get the middleware proxy.
      *
-     * @return MiddlewareProxy
+     * @return MiddlewareProxyFactory
      */
-    private function getMiddlewareProxy(): MiddlewareProxy
+    private function getMiddlewareProxyFactory(): MiddlewareProxyFactory
     {
-        return $this->middlewareProxy;
+        return $this->getContainer()->get(MiddlewareProxyFactory::class);
     }
 
     /**

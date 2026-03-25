@@ -1,13 +1,11 @@
 <?php
 namespace Juzdy\Http\Middleware\Common;
 
-use Juzdy\Http\HandlerInterface;
-use Juzdy\Http\Middleware\MiddlewareInterface;
-use Juzdy\Http\Middleware\RequestHandlerInterface;
-use Juzdy\Http\RequestInterface;
-use Juzdy\Http\Response;
-use Juzdy\Http\ResponseInterface;
-use Juzdy\Request;
+use Juzdy\Config\ConfigInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
 /**
  * Rate Limiting Middleware
@@ -21,6 +19,7 @@ use Juzdy\Request;
  */
 class RateLimitMiddleware implements MiddlewareInterface
 {
+    
     /**
      * Maximum requests per time window
      */
@@ -34,25 +33,26 @@ class RateLimitMiddleware implements MiddlewareInterface
     /**
      * Constructor
      *
-     * @param int $maxRequests Maximum requests allowed in the time window
-     * @param int $timeWindow Time window in seconds
+     * @param ConfigInterface $config Configuration interface
      */
-    public function __construct(int $maxRequests = 60, int $timeWindow = 60)
+    public function __construct(private ConfigInterface $config)
     {
-        $this->maxRequests = $maxRequests;
-        $this->timeWindow = $timeWindow;
+        $this->maxRequests = $config->get('rate_limit.max_requests') ?? 100;
+        $this->timeWindow = $config->get('rate_limit.time_window') ?? 60;
     }
 
     /**
      * Process the request.
      *
-     * @param RequestInterface $request
+     * @param ServerRequestInterface $request
      * @param RequestHandlerInterface $handler
+     * 
      * @return ResponseInterface
      */
-    public function process(RequestInterface $request, HandlerInterface $handler): ResponseInterface
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $ip = $request->server('REMOTE_ADDR') ?? 'unknown';
+        \Juzdy\Debug\Debug::dd($this->getConfig()->all());
+        $ip = $request->getServerParams()['REMOTE_ADDR'] ?? 'unknown';
         
         // Note: Using session storage here for simplicity
         // For production, use shared cache (Redis/Memcached) for IP-based rate limiting
@@ -96,5 +96,20 @@ class RateLimitMiddleware implements MiddlewareInterface
         
         // Continue to next middleware or handler
         return $handler->handle($request);
+    }
+
+    /**
+     * Get configuration value
+     *
+     * @param string|null $key Configuration key (optional)
+     * @return mixed Configuration value or entire config if key is null
+     */
+    protected function getConfig(?string $key = null): mixed
+    {
+        if ($key === null) {
+            return $this->config;
+        }
+
+        return $this->config->get($key);
     }
 }

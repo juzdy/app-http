@@ -11,7 +11,9 @@
     ],
     "require": {
         "php": ">=8.2",
-        "juzdy/app":"^1"
+        "juzdy/app":"dev-main",
+        "psr/http-message": "^2",
+        "psr/http-factory": "^1"
     },
     "autoload": {
         "psr-4": {
@@ -24,10 +26,7 @@
     },
     "extra": {
         "juzdy": {
-            "config-dir": "etc/config",
-            "config-inline": {
-                "used_app-http-config": true
-            }
+            "read-config-from-dir": "etc/config"
         }
     },
     "config": {

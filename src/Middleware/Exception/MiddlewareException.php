@@ -1,5 +1,5 @@
 <?php
-namespace Juzdy\Http\Middleware;
+namespace Juzdy\Http\Middleware\Exception;
 
 use Exception;
 

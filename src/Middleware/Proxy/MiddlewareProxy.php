@@ -1,28 +1,32 @@
 <?php
+/**
+ ▄▄▄
+  █ J █ u z d y
+   ▀▀▀
+ */
 namespace Juzdy\Http\Middleware\Proxy;
 
-use Juzdy\Http\HandlerInterface;
-use Juzdy\Http\Middleware\MiddlewareException;
-use Juzdy\Http\Middleware\MiddlewareInterface;
-use Juzdy\Http\RequestInterface;
-use Juzdy\Http\ResponseInterface;
-use Psr\Container\ContainerInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+use Juzdy\Http\Middleware\Exception\MiddlewareException;
+use Juzdy\Http\Middleware\Proxy\Event\AfterProcessEvent;
+use Juzdy\Http\Middleware\Proxy\Event\BeforeProcessEvent;
 
 class MiddlewareProxy implements MiddlewareInterface
 {
-
     /**
      * @var string The service identifier for the middleware to be resolved from the container
      */
     private string $middlewareId = '';
 
-    /**
-     * Constructor
-     *
-     * @param ContainerInterface $container The container to resolve the middleware from
-     */
-    public function __construct(private ContainerInterface $container)
-    { 
+    public function __construct(
+        private MiddlewareFactory $middlewareFactory,
+        private BeforeProcessEvent $beforeProcessEvent,
+        private AfterProcessEvent $afterProcessEvent,
+    ) 
+    {
     }
 
     /**
@@ -39,14 +43,15 @@ class MiddlewareProxy implements MiddlewareInterface
     }
 
     /**
-     * Get the container instance.
+     * Get the middleware factory.
      *
-     * @return ContainerInterface The container instance
+     * @return MiddlewareFactory The middleware factory instance
      */
-    private function getContainer(): ContainerInterface
+    private function getMiddlewareFactory(): MiddlewareFactory
     {
-        return $this->container;
+        return $this->middlewareFactory;
     }
+    
 
 
     /**
@@ -67,20 +72,56 @@ class MiddlewareProxy implements MiddlewareInterface
     /**
      * Handle the request by processing through the middleware stack.
      *
-     * @param RequestInterface $request
-     * @param HandlerInterface $handler
+     * @param ServerRequestInterface $request
+     * @param RequestHandlerInterface $handler
      * 
      * @return ResponseInterface
      */
-    public function process(RequestInterface $request, HandlerInterface $handler): ResponseInterface
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $middlewareId = $this->getId();
-        $middleware = $this->getContainer()->get($middlewareId);
+
+        $middleware = $this->getMiddlewareFactory()->create($middlewareId);
+
+        $this->before([
+            'middlewareId' => $middlewareId,
+            'middleware' => $middleware,
+            'request' => $request,
+        ]);
 
         if (!$middleware instanceof MiddlewareInterface) {
             throw new MiddlewareException("Middleware with ID '{$middlewareId}' is not valid.");
         }
 
-        return $middleware->process($request, $handler);
+        $response = $middleware->process($request, $handler);
+
+        $this->after([
+            'middlewareId' => $middlewareId,
+            'middleware' => $middleware,
+            'request' => $request,
+            'response' => $response,
+        ]);
+
+        return $response;
+    }
+
+    /**
+     * Dispatch the before process event.
+     *
+     * @param array $data The data to be passed with the event
+     */
+    private function before(array $data): void
+    {
+        $this->beforeProcessEvent->fire($data);
+    }
+
+    /**
+     * Dispatch the after process event.
+     *
+     * @param array $data The data to be passed with the event
+     */
+    private function after(array $data): void
+    {
+        $this->afterProcessEvent->fire($data);
     }
 }

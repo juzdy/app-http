@@ -3,6 +3,7 @@ namespace Juzdy\Http\Middleware\Common;
 
 use Juzdy\Error\ErrorHandler;
 use Juzdy\Http\HandlerInterface;
+use Juzdy\Http\Middleware\MiddlewareInterface;
 use Juzdy\Http\RequestInterface;
 use Juzdy\Http\ResponseInterface;
 
@@ -19,6 +20,7 @@ class ErrorHandlerMiddleware implements MiddlewareInterface
     {
         // ErrorHandler::init();
         // return $handler->handle($request);
+
 
         try {
         
