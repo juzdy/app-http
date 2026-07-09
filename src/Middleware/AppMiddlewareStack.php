@@ -20,7 +20,7 @@ use Juzdy\Container\Attribute\Shared;
  * Processes a request through a stack of middleware components.
  */
 #[Shared]
-class MiddlewareStack implements RequestHandlerInterface
+class AppMiddlewareStack implements RequestHandlerInterface
 {
 
 
@@ -80,12 +80,9 @@ class MiddlewareStack implements RequestHandlerInterface
             foreach ($middlewares as $middleware) {
                 $currentNext = $next;
                 $next = fn (ServerRequestInterface $req) => $middleware->process($req, new class($currentNext) implements RequestHandlerInterface {
-                    private $handler;
 
-                    public function __construct(callable $handler)
-                    {
-                        $this->handler = $handler;
-                    }
+                    public function __construct(private $handler)
+                    {}
 
                     public function handle(ServerRequestInterface $request): ResponseInterface
                     {
@@ -97,32 +94,4 @@ class MiddlewareStack implements RequestHandlerInterface
 
         return $next($request);
     }
-
-    // public function pushAfter(string $afterMiddleware, MiddlewareInterface|string $middleware): static
-    // {
-    //     foreach ($this->middleware as $priority => $middlewares) {
-    //         foreach ($middlewares as $index => $m) {
-    //             if ((is_string($m) && $m === $afterMiddleware) || (is_object($m) && $m::class === $afterMiddleware)) {
-    //                 array_splice($this->middleware[$priority], $index + 1, 0, [$middleware]);
-    //                 return $this;
-    //             }
-    //         }
-    //     }
-
-    //     return $this->push($middleware, PHP_INT_MAX);
-    // }
-
-    // public function pushBefore(string $beforeMiddleware, MiddlewareInterface|string $middleware): static
-    // {
-    //     foreach ($this->middleware as $priority => $middlewares) {
-    //         foreach ($middlewares as $index => $m) {
-    //             if ((is_string($m) && $m === $beforeMiddleware) || (is_object($m) && $m::class === $beforeMiddleware)) {
-    //                 array_splice($this->middleware[$priority], $index, 0, [$middleware]);
-    //                 return $this;
-    //             }
-    //         }
-    //     }
-
-    //     return $this->push($middleware, PHP_INT_MIN);
-    // }
 }

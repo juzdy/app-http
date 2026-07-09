@@ -1,6 +1,6 @@
 <?php
 return [
     'packages' => [
-            \Juzdy\Http\AppHttpPackage::class,
+            \Juzdy\Http\AppHttpPackage::class => [],
     ],
 ];
